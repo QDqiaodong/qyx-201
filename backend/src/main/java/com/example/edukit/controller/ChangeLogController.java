@@ -1,7 +1,6 @@
 package com.example.edukit.controller;
 
 import com.example.edukit.dto.ChangeLogDTO;
-import com.example.edukit.dto.ChangeRequestDTO;
 import com.example.edukit.dto.MonthlySummaryDTO;
 import com.example.edukit.service.ChangeLogService;
 import lombok.RequiredArgsConstructor;
@@ -16,11 +15,6 @@ import java.util.List;
 public class ChangeLogController {
 
     private final ChangeLogService changeLogService;
-
-    @PostMapping("/change")
-    public ResponseEntity<ChangeLogDTO> changeResponsibleStaff(@RequestBody ChangeRequestDTO request) {
-        return ResponseEntity.ok(changeLogService.changeResponsibleStaff(request));
-    }
 
     @GetMapping
     public ResponseEntity<List<ChangeLogDTO>> getAllChangeLogs() {

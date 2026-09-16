@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Kit, Staff, ChangeLog, ChangeRequest, MonthlySummary } from '@/types'
+import type { Kit, Staff, ChangeLog, ScanVerification, ScanVerifyRequest, TransferConfirmRequest, MonthlySummary } from '@/types'
 
 const api = axios.create({
   baseURL: '/api',
@@ -13,6 +13,12 @@ api.interceptors.response.use(
     throw error
   }
 )
+
+/** 从后端错误响应中取出中文提示信息 */
+export function errorMessage(e: unknown, fallback = '操作失败，请重试'): string {
+  const err = e as { response?: { data?: { message?: string } } }
+  return err?.response?.data?.message || fallback
+}
 
 export const kitApi = {
   getAll: async (): Promise<Kit[]> => api.get('/kits'),
@@ -35,8 +41,14 @@ export const staffApi = {
   getByDepartment: async (department: string): Promise<Staff[]> => api.get(`/staff/department/${department}`)
 }
 
+export const transferApi = {
+  verify: async (data: ScanVerifyRequest): Promise<ScanVerification> => api.post('/kit-transfers/verify', data),
+  confirm: async (data: TransferConfirmRequest): Promise<ChangeLog> => api.post('/kit-transfers/confirm', data),
+  getVerifications: async (): Promise<ScanVerification[]> => api.get('/kit-transfers/verifications'),
+  getVerificationsByKit: async (kitId: number): Promise<ScanVerification[]> => api.get(`/kit-transfers/verifications/kit/${kitId}`)
+}
+
 export const changeLogApi = {
-  changeResponsibleStaff: async (data: ChangeRequest): Promise<ChangeLog> => api.post('/change-logs/change', data),
   getAll: async (): Promise<ChangeLog[]> => api.get('/change-logs'),
   getByKit: async (kitId: number): Promise<ChangeLog[]> => api.get(`/change-logs/kit/${kitId}`),
   getByStaff: async (staffId: number): Promise<ChangeLog[]> => api.get(`/change-logs/staff/${staffId}`),

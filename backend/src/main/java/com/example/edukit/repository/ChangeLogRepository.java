@@ -30,4 +30,10 @@ public interface ChangeLogRepository extends JpaRepository<ChangeLog, Long> {
            "FROM ChangeLog cl ORDER BY year DESC, month DESC")
     List<Object[]> findDistinctMonths();
 
+    /** 判断某条扫码核对记录是否已被一次更换消耗 */
+    boolean existsByVerificationId(Long verificationId);
+
+    @Query("SELECT cl.verification.id FROM ChangeLog cl WHERE cl.verification IS NOT NULL")
+    List<Long> findVerificationIds();
+
 }

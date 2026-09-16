@@ -11,6 +11,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,6 +40,7 @@ public class KitService {
     public KitDTO createKit(KitDTO kitDTO) {
         Kit kit = new Kit();
         kit.setKitCode(kitDTO.getKitCode());
+        kit.setQrCode(resolveQrCode(kitDTO.getQrCode(), kitDTO.getKitCode(), null));
         kit.setName(kitDTO.getName());
         kit.setCategory(kitDTO.getCategory());
         kit.setAdaptedClasses(kitDTO.getAdaptedClasses());
@@ -64,6 +66,10 @@ public class KitService {
                 .orElseThrow(() -> new RuntimeException("教具不存在: " + id));
 
         kit.setKitCode(kitDTO.getKitCode());
+        if (StringUtils.hasText(kitDTO.getQrCode())
+                && !kitDTO.getQrCode().trim().equals(kit.getQrCode())) {
+            kit.setQrCode(resolveQrCode(kitDTO.getQrCode(), kitDTO.getKitCode(), id));
+        }
         kit.setName(kitDTO.getName());
         kit.setCategory(kitDTO.getCategory());
         kit.setAdaptedClasses(kitDTO.getAdaptedClasses());
@@ -76,11 +82,7 @@ public class KitService {
             kit.setImageUrl(kitDTO.getImageUrl());
         }
 
-        if (kitDTO.getResponsibleStaffId() != null) {
-            Staff staff = staffRepository.findById(kitDTO.getResponsibleStaffId())
-                    .orElseThrow(() -> new RuntimeException("教职工不存在: " + kitDTO.getResponsibleStaffId()));
-            kit.setResponsibleStaff(staff);
-        }
+        // 责任人变更必须走扫码核对更换流程（/api/kit-transfers），编辑教具不允许直接改责任人
 
         Kit updatedKit = kitRepository.save(kit);
         log.info("更新教具: {}", updatedKit.getKitCode());
@@ -111,10 +113,24 @@ public class KitService {
         return kitRepository.findAllCategories();
     }
 
+    /**
+     * 确定教具二维码值：留空时按教具编号生成；已占用时拒绝。
+     */
+    private String resolveQrCode(String qrCode, String kitCode, Long excludeKitId) {
+        String resolved = StringUtils.hasText(qrCode) ? qrCode.trim() : "QR-" + kitCode;
+        kitRepository.findByQrCode(resolved).ifPresent(existing -> {
+            if (excludeKitId == null || !existing.getId().equals(excludeKitId)) {
+                throw new RuntimeException("二维码值已被教具「" + existing.getKitCode() + "」占用，请更换");
+            }
+        });
+        return resolved;
+    }
+
     private KitDTO convertToDTO(Kit kit) {
         KitDTO dto = new KitDTO();
         dto.setId(kit.getId());
         dto.setKitCode(kit.getKitCode());
+        dto.setQrCode(kit.getQrCode());
         dto.setName(kit.getName());
         dto.setCategory(kit.getCategory());
         dto.setAdaptedClasses(kit.getAdaptedClasses());

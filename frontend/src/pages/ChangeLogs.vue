@@ -1,18 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { changeLogApi, kitApi, staffApi } from '@/api'
-import type { ChangeLog, Kit, Staff, ChangeRequest } from '@/types'
+import { changeLogApi, transferApi } from '@/api'
+import type { ChangeLog, ScanVerification } from '@/types'
+import KitTransferDialog from '@/components/KitTransferDialog.vue'
 
 const changeLogs = ref<ChangeLog[]>([])
-const kits = ref<Kit[]>([])
-const staffList = ref<Staff[]>([])
-const showDialog = ref(false)
-const form = ref({
-  kitId: 0,
-  newStaffId: 0,
-  operator: '',
-  reason: ''
-})
+const verifications = ref<ScanVerification[]>([])
+const showTransferDialog = ref(false)
+const activeTab = ref('logs')
 
 onMounted(async () => {
   await loadData()
@@ -21,38 +16,42 @@ onMounted(async () => {
 async function loadData() {
   try {
     changeLogs.value = await changeLogApi.getAll()
-    kits.value = await kitApi.getAll()
-    staffList.value = await staffApi.getAll()
+    verifications.value = await transferApi.getVerifications()
   } catch (e) {
     console.error('Failed to load data:', e)
   }
 }
 
-function openDialog() {
-  form.value = {
-    kitId: 0,
-    newStaffId: 0,
-    operator: '',
-    reason: ''
-  }
-  showDialog.value = true
+async function onTransferSuccess() {
+  await loadData()
 }
 
-async function changeResponsibleStaff() {
-  try {
-    const request: ChangeRequest = {
-      kitId: form.value.kitId,
-      newStaffId: form.value.newStaffId,
-      operator: form.value.operator,
-      reason: form.value.reason
-    }
-    await changeLogApi.changeResponsibleStaff(request)
-    alert('责任人变更成功')
-    showDialog.value = false
-    await loadData()
-  } catch (e) {
-    alert('操作失败，请重试')
+function resultLabel(result: string): string {
+  switch (result) {
+    case 'SUCCESS': return '核对通过'
+    case 'FAIL_CODE_UNKNOWN': return '码无法识别'
+    case 'FAIL_CODE_MISMATCH': return '码与教具不符'
+    case 'FAIL_OWNER_CHANGED': return '已不在原责任人名下'
+    default: return result
   }
+}
+
+function resultTagType(result: string): 'success' | 'danger' {
+  return result === 'SUCCESS' ? 'success' : 'danger'
+}
+
+function usageLabel(v: ScanVerification): string {
+  if (v.result !== 'SUCCESS') return '—'
+  if (v.consumed) return '已用于更换'
+  if (v.expireTime && new Date(v.expireTime).getTime() < Date.now()) return '已超时失效'
+  return '待使用（限时）'
+}
+
+function usageTagType(v: ScanVerification): 'info' | 'success' | 'warning' {
+  if (v.result !== 'SUCCESS') return 'info'
+  if (v.consumed) return 'success'
+  if (v.expireTime && new Date(v.expireTime).getTime() < Date.now()) return 'info'
+  return 'warning'
 }
 </script>
 
@@ -60,51 +59,77 @@ async function changeResponsibleStaff() {
   <div class="change-logs">
     <div class="page-header">
       <h2>责任人变更日志</h2>
-      <el-button type="primary" @click="openDialog()">更换责任人</el-button>
+      <el-button type="primary" @click="showTransferDialog = true">更换责任人</el-button>
     </div>
-    
-    <el-table :data="changeLogs" stripe border :max-height="600">
-      <el-table-column prop="kitCode" label="教具编号" />
-      <el-table-column prop="kitName" label="教具名称" />
-      <el-table-column prop="oldStaffName" label="原责任人">
-        <template #default="scope">
-          {{ scope.row.oldStaffName || '无' }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="newStaffName" label="新责任人" />
-      <el-table-column prop="changeTime" label="变更时间" />
-      <el-table-column prop="operator" label="操作人" />
-      <el-table-column prop="reason" label="变更原因">
-        <template #default="scope">
-          {{ scope.row.reason || '无' }}
-        </template>
-      </el-table-column>
-    </el-table>
-    
-    <el-dialog v-model="showDialog" title="更换责任人" width="500px">
-      <el-form :model="form" label-width="100px">
-        <el-form-item label="选择教具" required>
-          <el-select v-model="form.kitId" placeholder="请选择教具">
-            <el-option v-for="kit in kits" :key="kit.id" :label="`${kit.kitCode} - ${kit.name}`" :value="kit.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="新责任人" required>
-          <el-select v-model="form.newStaffId" placeholder="请选择新责任人">
-            <el-option v-for="staff in staffList" :key="staff.id" :label="staff.name" :value="staff.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="操作人" required>
-          <el-input v-model="form.operator" placeholder="请输入操作人姓名" />
-        </el-form-item>
-        <el-form-item label="变更原因">
-          <el-input v-model="form.reason" type="textarea" :rows="3" placeholder="请输入变更原因" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showDialog = false">取消</el-button>
-        <el-button type="primary" @click="changeResponsibleStaff">确定变更</el-button>
-      </template>
-    </el-dialog>
+
+    <el-tabs v-model="activeTab">
+      <el-tab-pane label="变更日志" name="logs">
+        <el-table :data="changeLogs" stripe border :max-height="600">
+          <el-table-column prop="kitCode" label="教具编号" width="110" />
+          <el-table-column prop="kitName" label="教具名称" width="130" />
+          <el-table-column prop="oldStaffName" label="原责任人" width="90">
+            <template #default="scope">
+              {{ scope.row.oldStaffName || '无' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="newStaffName" label="新责任人" width="90" />
+          <el-table-column prop="changeTime" label="变更时间" width="165" />
+          <el-table-column prop="operator" label="操作人" width="90" />
+          <el-table-column prop="scannedCode" label="扫码码值" width="140">
+            <template #default="scope">
+              {{ scope.row.scannedCode || '—' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="verifyOperator" label="核对人" width="90">
+            <template #default="scope">
+              {{ scope.row.verifyOperator || '—' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="verifyTime" label="核对时间" width="165">
+            <template #default="scope">
+              {{ scope.row.verifyTime || '—' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="reason" label="变更原因">
+            <template #default="scope">
+              {{ scope.row.reason || '无' }}
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
+      <el-tab-pane label="扫码核对记录" name="verifications">
+        <el-table :data="verifications" stripe border :max-height="600">
+          <el-table-column prop="verifyTime" label="核对时间" width="165" />
+          <el-table-column prop="kitCode" label="教具编号" width="110" />
+          <el-table-column prop="kitName" label="教具名称" width="130" />
+          <el-table-column prop="scannedCode" label="扫入码值" width="140" />
+          <el-table-column prop="operator" label="核对人" width="90" />
+          <el-table-column prop="expectedOldStaffName" label="核对时责任人" width="110">
+            <template #default="scope">
+              {{ scope.row.expectedOldStaffName || '无' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="核对结果" width="140">
+            <template #default="scope">
+              <el-tag :type="resultTagType(scope.row.result)">{{ resultLabel(scope.row.result) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="failReason" label="失败原因">
+            <template #default="scope">
+              {{ scope.row.failReason || '—' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="使用情况" width="120">
+            <template #default="scope">
+              <el-tag :type="usageTagType(scope.row)">{{ usageLabel(scope.row) }}</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+    </el-tabs>
+
+    <KitTransferDialog v-model="showTransferDialog" @success="onTransferSuccess" />
   </div>
 </template>
 

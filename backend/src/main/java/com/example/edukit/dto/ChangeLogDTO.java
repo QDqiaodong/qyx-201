@@ -19,4 +19,10 @@ public class ChangeLogDTO {
     private String operator;
     private String reason;
 
+    /** 本次更换扫的是哪个码、谁核对的、什么时候核对的 */
+    private Long verificationId;
+    private String scannedCode;
+    private String verifyOperator;
+    private LocalDateTime verifyTime;
+
 }

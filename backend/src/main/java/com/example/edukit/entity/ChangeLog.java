@@ -51,6 +51,11 @@ public class ChangeLog {
     @Column(name = "reason", length = 500)
     private String reason;
 
+    /** 本次更换依据的扫码核对记录；唯一约束保证一条核对记录只能被消耗一次 */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "verification_id", unique = true)
+    private ScanVerification verification;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

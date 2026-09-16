@@ -71,16 +71,31 @@ async function querySummary() {
       </div>
       
       <el-table :data="currentSummary.changeLogs" stripe border :max-height="500">
-        <el-table-column prop="kitCode" label="教具编号" />
-        <el-table-column prop="kitName" label="教具名称" />
-        <el-table-column prop="oldStaffName" label="原责任人">
+        <el-table-column prop="kitCode" label="教具编号" width="110" />
+        <el-table-column prop="kitName" label="教具名称" width="130" />
+        <el-table-column prop="oldStaffName" label="原责任人" width="90">
           <template #default="scope">
             {{ scope.row.oldStaffName || '无' }}
           </template>
         </el-table-column>
-        <el-table-column prop="newStaffName" label="新责任人" />
-        <el-table-column prop="changeTime" label="变更时间" />
-        <el-table-column prop="operator" label="操作人" />
+        <el-table-column prop="newStaffName" label="新责任人" width="90" />
+        <el-table-column prop="changeTime" label="变更时间" width="165" />
+        <el-table-column prop="operator" label="操作人" width="90" />
+        <el-table-column prop="scannedCode" label="扫码码值" width="140">
+          <template #default="scope">
+            {{ scope.row.scannedCode || '—' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="verifyOperator" label="核对人" width="90">
+          <template #default="scope">
+            {{ scope.row.verifyOperator || '—' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="verifyTime" label="核对时间" width="165">
+          <template #default="scope">
+            {{ scope.row.verifyTime || '—' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="reason" label="变更原因">
           <template #default="scope">
             {{ scope.row.reason || '无' }}

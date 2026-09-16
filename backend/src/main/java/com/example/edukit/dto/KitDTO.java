@@ -7,6 +7,7 @@ public class KitDTO {
 
     private Long id;
     private String kitCode;
+    private String qrCode;
     private String name;
     private String category;
     private String adaptedClasses;

@@ -21,6 +21,10 @@ public class Kit {
     @Column(name = "kit_code", nullable = false, unique = true, length = 50)
     private String kitCode;
 
+    /** 教具标签上的二维码值，更换责任人时按此码值核对档案 */
+    @Column(name = "qr_code", unique = true, length = 100)
+    private String qrCode;
+
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
